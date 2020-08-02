@@ -18,7 +18,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --verbose
-      working-directory: ./neato-xv11/
+      working-directory: ./neato_xv11/
     - name: Run tests
       run: cargo test --verbose
-      working-directory: ./neato-xv11/
+      working-directory: ./neato_xv11/
