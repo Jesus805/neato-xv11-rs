@@ -1,10 +1,10 @@
 [package]
 name = "neato_xv11"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Jesus Bamford <jesus.bamford@gmail.com>"]
 description = "Neato XV-11 LIDAR for Rust"
-homepage = "https://github.com/Jesus805/neatoxv11-rs"
-repository = "https://github.com/Jesus805/neatoxv11-rs"
+homepage = "https://github.com/Jesus805/neato-xv11-rs"
+repository = "https://github.com/Jesus805/neato-xv11-rs"
 license = "MIT"
 readme = "README.md"
 keywords = ["lidar", "serial", "neato", "xv-11", "xv11"]
