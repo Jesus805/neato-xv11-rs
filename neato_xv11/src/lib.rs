@@ -25,8 +25,8 @@ fn checksum(data : &[u8]) -> u32 {
 
     for i in 0..10 {
         // Group the data by word, little-endian
-        let lsb : u32 = data[2 * i].into();
-        let msb : u32 = data[2 * i + 1].into();
+        let lsb = data[2 * i] as u32;
+        let msb = data[2 * i + 1] as u32;
         let val = (msb << 8) | lsb;
         // compute the checksum on 32 bits
         chk32 = (chk32 << 1) + val;
@@ -144,13 +144,13 @@ impl NeatoXV11Lidar {
             // println!("{:X?}", buffer);
             
             // Packet index | Range = [0,89]
-            let index : usize = buffer[1].into();
+            let index = buffer[1] as usize;
             let index = index - 0xA0;
             // println!("Index: {}", index);
 
             // Verify the packet's integrity
-            let msb : u32 = buffer[21].into();
-            let lsb : u32 = buffer[20].into();
+            let msb = buffer[21] as u32;
+            let lsb = buffer[20] as u32;
             
             // Generate the expected checksum
             let expected_checksum = (msb << 8) | lsb;
@@ -169,13 +169,13 @@ impl NeatoXV11Lidar {
                 let byte_index = 4 * i;
 
                 // The first 2 bytes are two flags + distance
-                let msb : i32 = buffer[byte_index + 1].into();
-                let lsb : i32 = buffer[byte_index].into();
+                let msb = buffer[byte_index + 1] as i32;
+                let lsb = buffer[byte_index] as i32;
                 let distance = (msb << 8) | lsb;
 
                 // The next 2 bytes are the reliability (higher # = more reliable reading)
-                let msb : i32 = buffer[byte_index + 3].into();
-                let lsb : i32 = buffer[byte_index + 2].into();
+                let msb = buffer[byte_index + 3] as i32;
+                let lsb = buffer[byte_index + 2] as i32;
                 let quality = (msb << 8) | lsb;
 
                 if distance & 0x8000 > 0 {
