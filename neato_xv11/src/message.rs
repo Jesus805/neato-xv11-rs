@@ -1,19 +1,40 @@
 use super::error::LidarReadingErrorType;
 
-#[allow(dead_code)]
+/// ## Summary
+///
+/// A LIDAR distance reading.
+///
 #[derive(Debug)]
 pub struct LidarReading {
-    index: usize,
-    distance: u32,
-    quality: u32,
-    error: LidarReadingErrorType,
+    // Index of the reading.
+    pub index: usize,
+    // Distance in millimeters.
+    pub distance: u32,
+    // Quality of the reading.
+    pub quality: u32,
+    // Error reported in reading.
+    pub error: Option<LidarReadingErrorType>,
 }
 
 impl LidarReading {
+    /// ## Summary
+    /// 
+    /// Initialize a new LIDAR reading.
+    /// 
+    /// ## Parameters
+    /// 
+    /// index: Index of the reading.
+    /// 
+    /// distance: Distance in millimeters.
+    /// 
+    /// quality: Quality of the reading.
+    /// 
+    /// error: Error reported in reading.
+    /// 
     pub(crate) fn new(index: usize,
                       distance: u32,
                       quality: u32,
-                      error: LidarReadingErrorType) -> Self {
+                      error: Option<LidarReadingErrorType>) -> Self {
         LidarReading {
             index,
             distance,
@@ -23,14 +44,29 @@ impl LidarReading {
     }
 }
 
-#[allow(dead_code)]
+/// ## Summary
+///
+/// A decoded LIDAR message containing 4 distance readings.
+///
 #[derive(Debug)]
 pub struct LidarMessage {
-    readings: Vec<LidarReading>,
-    speed: f64,
+    // Collection of four readings.
+    pub readings: Vec<LidarReading>,
+    // LIDAR spin speed.
+    pub speed: f64,
 }
 
 impl LidarMessage {
+    /// ## Summary
+    /// 
+    /// Initialize a new decoded LIDAR message.
+    /// 
+    /// ## Parameters
+    /// 
+    /// readings: Collection of four readings.
+    /// 
+    /// speed: LIDAR spin speed (RPM).
+    /// 
     pub(crate) fn new(readings: Vec<LidarReading>, speed: f64) -> Self {
         LidarMessage {
             readings,
