@@ -1,4 +1,6 @@
-#[derive(Debug)]
+
+
+#[derive(Debug, PartialEq)]
 pub enum DriverErrorType {
     // Checksum error occured. The associated value is the packet index.
     ChecksumError(usize),

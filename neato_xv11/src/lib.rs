@@ -54,7 +54,7 @@ fn checksum(data : &[u8]) -> u32 {
 
 /// ## Summary
 ///
-/// 
+/// Parse data packet
 ///
 fn parse(buffer: [u8; 22]) -> Result<LidarMessage, DriverErrorType> {
     let mut readings = Vec::new();
@@ -77,7 +77,7 @@ fn parse(buffer: [u8; 22]) -> Result<LidarMessage, DriverErrorType> {
     let calc_checksum = checksum(&buffer[0..20]);
 
     if calc_checksum != expected_checksum {
-        // Checksum error occured. The data is garbage.
+        // Checksum error occured. The data is corrupted.
         return Err(DriverErrorType::ChecksumError(index));
     }
 
@@ -162,10 +162,11 @@ fn sync<T: SerialPort>(port: &mut T, buffer: &mut [u8; 22]) {
 /// ## Example
 ///
 /// ```no_run
-/// # use neato_xv11::NeatoXV11Lidar;
-///
+/// # use neato_xv11;
+/// # use std::sync::mpsc::{channel, Receiver, TryRecvError};
 /// 
-/// run("/dev/serial0", tx);
+/// let (tx, rx) = channel();
+/// neato_xv11::run("/dev/serial0", tx);
 /// ```
 pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMessage, DriverErrorType>>) {
     // Initialize the serial port.
@@ -190,18 +191,25 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMess
         else {
             port.read_exact(&mut buffer).unwrap();
             
-            if buffer[0] != 0xFA ||
-               buffer[1] < 0xA0 || buffer[1] > 0xF9 {
+            if buffer[0] != 0xFA || buffer[1] < 0xA0 || buffer[1] > 0xF9 {
                 // The first byte is not '0xFA' or the second byte isn't a valid index.
                 // Resync required.
-                tx.send(Err(DriverErrorType::ResyncRequired)).unwrap();
+                match tx.send(Err(DriverErrorType::ResyncRequired)) {
+                    Ok(_) => {},
+                    Err(_) => break,
+                }
+
                 needs_sync = true;
                 continue;
             }
         }
 
         let result = parse(buffer);
-        tx.send(result).unwrap();
+        
+        match tx.send(result) {
+            Ok(_) => {},
+            Err(_) => break,
+        }
     }
 }
 
@@ -226,21 +234,24 @@ mod tests {
         assert_eq!(expected_checksum, actual_checksum);
     }
     
-    /*
     #[test]
     fn parse_with_correct_checksum_should_return_ok() {
-
+        // Arrange
+        let packet = PACKET.clone();
+        // Act
+        let actual_result = parse(packet);
+        // Assert
+        actual_result.expect("Expected Result::Ok when checksum is correct.");
     }
-    */
     
     #[test]
     fn parse_with_incorrect_checksum_should_return_error() {
         // Arrange
         let bad_checksum = BAD_CHECKSUM.clone();
-        let expected_result = Result::Err(DriverErrorType::ChecksumError(0x11));
+        let expected_result = DriverErrorType::ChecksumError(0x11);
         // Act
         let actual_result = parse(bad_checksum);
         // Assert
-        assert_eq!(expected_result, actual_result);
+        assert_eq!(actual_result.expect_err("Checksum Error expected"), expected_result);
     }
 }
