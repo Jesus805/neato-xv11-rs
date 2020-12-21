@@ -1,4 +1,4 @@
-use super::error::LidarReadingErrorType;
+use super::error::LidarReadingError;
 
 /// ## Summary
 ///
@@ -13,7 +13,7 @@ pub struct LidarReading {
     // Quality of the reading.
     pub quality: u32,
     // Error reported in reading.
-    pub error: Option<LidarReadingErrorType>,
+    pub error: Option<LidarReadingError>,
 }
 
 impl LidarReading {
@@ -34,7 +34,7 @@ impl LidarReading {
     pub(crate) fn new(index: usize,
                       distance: u32,
                       quality: u32,
-                      error: Option<LidarReadingErrorType>) -> Self {
+                      error: Option<LidarReadingError>) -> Self {
         LidarReading {
             index,
             distance,
@@ -46,7 +46,7 @@ impl LidarReading {
 
 /// ## Summary
 ///
-/// A decoded LIDAR message containing 4 distance readings.
+/// A decoded LIDAR message containing four distance readings.
 ///
 #[derive(Debug)]
 pub struct LidarMessage {
