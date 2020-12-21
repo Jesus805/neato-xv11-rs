@@ -217,7 +217,7 @@ mod tests {
 
 
     #[test]
-    fn checksum_should_be_correct() {
+    fn checksum_fn_should_be_correct() {
         // Arrange
         let expected_checksum = 0x6BF6;
         // Act
@@ -236,9 +236,10 @@ mod tests {
     #[test]
     fn parse_with_incorrect_checksum_should_return_error() {
         // Arrange
-        let expected_result = Error(DriverErrorType::ChecksumError(0x11));
+        let bad_checksum = BAD_CHECKSUM.clone();
+        let expected_result = Result::Err(DriverErrorType::ChecksumError(0x11));
         // Act
-        let actual_result = parse(&BAD_CHECKSUM);
+        let actual_result = parse(bad_checksum);
         // Assert
         assert_eq!(expected_result, actual_result);
     }
