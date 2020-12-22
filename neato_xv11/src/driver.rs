@@ -191,10 +191,13 @@ fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Resu
 /// # use neato_xv11::prelude::*;
 /// # use std::sync::mpsc::channel;
 /// 
-/// let (tx, rx) = channel();
+/// // Create a message channel.
+/// let (message_tx, message_rx) = channel();
+/// // Create a command channel.
+/// let (command_tx, command_rx) = channel();
 /// 
 /// thread::spawn(move || {
-///     neato_xv11::run("/dev/serial0", tx);
+///     neato_xv11::run("/dev/serial0", message_tx, command_rx);
 /// });
 /// ```
 pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMessage, DriverError>>, rx: Receiver<Command>) {
