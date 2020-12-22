@@ -187,9 +187,9 @@ fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Resu
 /// ## Example
 ///
 /// ```no_run
-/// # use neato_xv11;
-/// # use neato_xv11::prelude::*;
+/// # use std::thread;
 /// # use std::sync::mpsc::channel;
+/// # use neato_xv11;
 /// 
 /// // Create a message channel.
 /// let (message_tx, message_rx) = channel();
