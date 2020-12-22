@@ -165,7 +165,6 @@ fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Resu
     }
 }
 
-
 /// ## Summary
 ///
 /// Begin reading LIDAR data.
@@ -239,7 +238,7 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMess
 
     loop {
         // Sleep for 1 millisecond.
-        std::thread::sleep(Duration::from_millis(1));
+        std::thread::sleep(Duration::from_micros(100));
 
         // Try to receive a command from the main thread.
         match rx.try_recv() {
