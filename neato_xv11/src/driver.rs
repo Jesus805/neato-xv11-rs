@@ -1,8 +1,9 @@
+use super::command::Command;
 use super::error::{DriverError, LidarReadingError};
 use super::message::{LidarReading, LidarMessage};
 use serial::prelude::*;
 use std::ffi::OsStr;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use std::time::Duration;
 use std::vec::Vec;
 
@@ -138,11 +139,11 @@ fn read<T: SerialPort>(port: &mut T, mut buffer: &mut [u8], tx: &Sender<Result<L
 /// 
 /// tx: Send channel to write to in the event of a read error.
 ///
-fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Result<LidarMessage, DriverError>>) {
+fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Result<LidarMessage, DriverError>>) -> Result<(), ()> {
     loop {
         // Read 1 byte until '0xFA' is found.
         if let Err(_) = read::<T>(&mut port, &mut buffer[0..1], &tx) {
-            break;
+            return Err(());
         }
 
         if buffer[0] != 0xFA {
@@ -151,7 +152,7 @@ fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Resu
 
         // Read the remaining 21 bytes.
         if let Err(_) = read::<T>(&mut port, &mut buffer[1..], &tx) {
-            break;
+            return Err(());
         }
 
         // Ensure that the next byte is a valid index.
@@ -160,7 +161,7 @@ fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Resu
         }
         
         // In sync, break out of loop.
-        break;
+        return Ok(());
     }
 }
 
@@ -173,6 +174,10 @@ fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Resu
 /// 
 /// port_name: The port name to open.
 ///
+/// tx: Sends decoded LIDAR messages or error encountered.
+///
+/// rx: Receives commands from the calling program.
+///
 /// ## Remarks
 ///
 /// 22 byte packet format:
@@ -183,25 +188,77 @@ fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Resu
 ///
 /// ```no_run
 /// # use neato_xv11;
+/// # use neato_xv11::prelude::*;
 /// # use std::sync::mpsc::channel;
 /// 
 /// let (tx, rx) = channel();
-/// neato_xv11::run("/dev/serial0", tx);
+/// 
+/// thread::spawn(move || {
+///     neato_xv11::run("/dev/serial0", tx);
+/// });
 /// ```
-pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMessage, DriverError>>) {
-    // Initialize the serial port.
-    let mut port = serial::open(port_name).unwrap();
-    port.set_timeout(Duration::from_secs(1)).unwrap();
-    port.configure(&SETTINGS).unwrap();
+pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMessage, DriverError>>, rx: Receiver<Command>) {
+    let mut port;
+    
+    // Attempt to open the serial port.
+    match serial::open(port_name) {
+        Ok(p) => {
+            // Initialize the serial port.
+            port = p
+        },
+        Err(err) => {
+            // Unable to open the serial port.
+            tx.send(Err(DriverError::OpenSerialPort(err))).unwrap();
+            return;
+        }
+    }
+
+    // Attempt to set the timeout.
+    if let Err(err) = port.set_timeout(Duration::from_secs(1)) {
+        // Unable to set the timeout.
+        tx.send(Err(DriverError::SetTimeout(err))).unwrap();
+        return;
+    }
+
+    // Attempt to configure the serial port.
+    if let Err(err) = port.configure(&SETTINGS) {
+        // Unable to configure the port.
+        tx.send(Err(DriverError::Configure(err))).unwrap();
+        return;
+    }
     
     // Temporary buffer to hold packet data.
     let mut buffer : [u8; 22] = [0; 22];
-    // If true, synchronization is required.
+    // Dictates if synchronization is required.
     let mut needs_sync = true;
+    // Prevents the driver from reading from the serial port.
+    let mut is_paused = false;
 
     loop {
         // Sleep for 1 millisecond.
         std::thread::sleep(Duration::from_millis(1));
+
+        // Try to receive a command from the main thread.
+        match rx.try_recv() {
+            Ok(cmd) => {
+                match cmd {
+                    Command::Run => is_paused = false,
+                    Command::Pause => is_paused = true,
+                    Command::Stop => return,
+                }
+            },
+            Err(err) => {
+                match err {
+                    TryRecvError::Empty => {}
+                    TryRecvError::Disconnected => return,
+                }
+            }
+        }
+
+        if is_paused {
+            // Skip reading from serial.
+            continue;
+        }
 
         // Clear buffer
         for element in buffer.iter_mut() {
@@ -210,19 +267,23 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMess
 
         if needs_sync {
             // Synchronize to ensure every 22 bytes is a valid packet.
-            sync(&mut port, &mut buffer, &tx);
+            if let Err(_) = sync(&mut port, &mut buffer, &tx) {
+                // Error syncing.
+                return;
+            }
             needs_sync = false;
         }
         else {
+            // Read 22 bytes from serial.
             if let Err(_) = read(&mut port, &mut buffer, &tx) {
-                break;
+                // Error reading from serial.
+                return;
             }
             
             if buffer[0] != 0xFA || buffer[1] < 0xA0 || buffer[1] > 0xF9 {
                 // The first byte is not '0xFA' or the second byte isn't a valid index.
                 // Resync required.
                 tx.send(Err(DriverError::ResyncRequired)).unwrap();
-
                 needs_sync = true;
                 continue;
             }
@@ -242,8 +303,8 @@ mod tests {
     const PACKET: [u8; 22] = [0xFA, 0xB1, 0xE3, 0x49, 0xE4, 0x00, 0xE1, 0x05, 0xE2, 0x00, 0x34,
                               0x06, 0xE0, 0x00, 0x25, 0x06, 0xDF, 0x00, 0x84, 0x06, 0xF6, 0x6B];
 
-    const BAD_CHECKSUM: [u8; 22] = [0xFA, 0xB1, 0xE3, 0x49, 0xE4, 0x00, 0xE1, 0x05, 0xE2, 0x00, 0x34,
-                                    0x06, 0xE0, 0x00, 0x25, 0x06, 0xDF, 0x00, 0x84, 0x06, 0xA6, 0xCE];
+    //const BAD_CHECKSUM: [u8; 22] = [0xFA, 0xB1, 0xE3, 0x49, 0xE4, 0x00, 0xE1, 0x05, 0xE2, 0x00, 0x34,
+    //                                0x06, 0xE0, 0x00, 0x25, 0x06, 0xDF, 0x00, 0x84, 0x06, 0xA6, 0xCE];
 
 
     #[test]

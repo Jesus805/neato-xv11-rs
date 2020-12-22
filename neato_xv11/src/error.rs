@@ -1,5 +1,6 @@
 use std::fmt;
 use std::io;
+use serial;
 
 /// ## Summary
 /// 
@@ -10,18 +11,27 @@ use std::io;
 pub enum DriverError {
     // Checksum error occured. The associated value is the packet index.
     Checksum(usize),
+    // Unable to configure serial port.
+    Configure(serial::Error),
+    // Unable to open serial port
+    OpenSerialPort(serial::Error),
     // A resync is required.
     ResyncRequired,
     // Serial read error.
     SerialRead(io::Error),
+    // Unable to set timeout.
+    SetTimeout(serial::Error),
 }
 
 impl fmt::Display for DriverError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             DriverError::Checksum(size) => write!(f, "checksum error occured at packet index {}", size),
+            DriverError::Configure(_) => write!(f, "unable to configure serial port"),
+            DriverError::OpenSerialPort(_) => write!(f, "unable to open serial port"),
             DriverError::ResyncRequired => write!(f, "resync required"),
             DriverError::SerialRead(_) => write!(f, "unable to read from serial port"),
+            DriverError::SetTimeout(_) => write!(f, "unable to set serial port timeout"),
         }
     }
 }
