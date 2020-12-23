@@ -234,7 +234,8 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMess
     // Dictates if synchronization is required.
     let mut needs_sync = true;
     // Prevents the driver from reading from the serial port.
-    let mut is_paused = false;
+    // Is paused by default.
+    let mut is_paused = true;
 
     loop {
         // Sleep for 1 millisecond.

@@ -1,6 +1,7 @@
 use std::fmt;
 use std::io;
 use serial;
+use serde::{Serialize, Deserialize};
 
 /// ## Summary
 /// 
@@ -42,7 +43,7 @@ impl fmt::Display for DriverError {
 /// This occurs when the LIDAR reports that the data is erroneous or unreliable, 
 /// which typically happens if the LIDAR is attempting to scan a far surface.
 /// 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub enum LidarReadingError {
     // The Invalid Data Error flag was set. The associated value is the error code.
     InvalidDataError(u32),

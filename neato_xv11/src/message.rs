@@ -1,10 +1,11 @@
 use super::error::LidarReadingError;
+use serde::{Serialize, Deserialize};
 
 /// ## Summary
 ///
 /// A LIDAR distance reading.
 ///
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct LidarReading {
     // Index of the reading.
     pub index: usize,
@@ -13,6 +14,7 @@ pub struct LidarReading {
     // Quality of the reading.
     pub quality: u32,
     // Error reported in reading.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<LidarReadingError>,
 }
 
@@ -48,7 +50,7 @@ impl LidarReading {
 ///
 /// A decoded LIDAR message containing four distance readings.
 ///
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct LidarMessage {
     // Collection of four readings.
     pub readings: Vec<LidarReading>,
