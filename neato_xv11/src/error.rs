@@ -1,6 +1,9 @@
 use std::fmt;
 use std::io;
+
 use serial;
+
+#[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};
 
 /// ## Summary
@@ -9,7 +12,7 @@ use serde::{Serialize, Deserialize};
 /// These errors are usually very serious.
 /// 
 #[derive(Debug)]
-pub enum DriverError {
+pub enum LidarDriverError {
     // Checksum error occured. The associated value is the packet index.
     Checksum(usize),
     // Unable to configure serial port.
@@ -24,15 +27,15 @@ pub enum DriverError {
     SetTimeout(serial::Error),
 }
 
-impl fmt::Display for DriverError {
+impl fmt::Display for LidarDriverError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            DriverError::Checksum(size) => write!(f, "checksum error occured at packet index {}", size),
-            DriverError::Configure(_) => write!(f, "unable to configure serial port"),
-            DriverError::OpenSerialPort(_) => write!(f, "unable to open serial port"),
-            DriverError::ResyncRequired => write!(f, "resync required"),
-            DriverError::SerialRead(_) => write!(f, "unable to read from serial port"),
-            DriverError::SetTimeout(_) => write!(f, "unable to set serial port timeout"),
+            LidarDriverError::Checksum(size) => write!(f, "checksum error occured at packet index {}", size),
+            LidarDriverError::Configure(_) => write!(f, "unable to configure serial port"),
+            LidarDriverError::OpenSerialPort(_) => write!(f, "unable to open serial port"),
+            LidarDriverError::ResyncRequired => write!(f, "resync required"),
+            LidarDriverError::SerialRead(_) => write!(f, "unable to read from serial port"),
+            LidarDriverError::SetTimeout(_) => write!(f, "unable to set serial port timeout"),
         }
     }
 }
@@ -43,7 +46,8 @@ impl fmt::Display for DriverError {
 /// This occurs when the LIDAR reports that the data is erroneous or unreliable, 
 /// which typically happens if the LIDAR is attempting to scan a far surface.
 /// 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub enum LidarReadingError {
     // The Invalid Data Error flag was set. The associated value is the error code.
     InvalidDataError(u32),

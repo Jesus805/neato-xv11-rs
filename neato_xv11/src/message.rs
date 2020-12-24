@@ -1,11 +1,13 @@
 use super::error::LidarReadingError;
+#[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};
 
 /// ## Summary
 ///
 /// A LIDAR distance reading.
 ///
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct LidarReading {
     // Index of the reading.
     pub index: usize,
@@ -14,7 +16,7 @@ pub struct LidarReading {
     // Quality of the reading.
     pub quality: u32,
     // Error reported in reading.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub error: Option<LidarReadingError>,
 }
 
@@ -50,11 +52,12 @@ impl LidarReading {
 ///
 /// A decoded LIDAR message containing four distance readings.
 ///
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct LidarMessage {
     // Collection of four readings.
-    pub readings: Vec<LidarReading>,
-    // LIDAR spin speed.
+    pub readings: [LidarReading; 4],
+    // LIDAR spin speed (RPM).
     pub speed: f64,
 }
 
@@ -69,11 +72,10 @@ impl LidarMessage {
     /// 
     /// speed: LIDAR spin speed (RPM).
     /// 
-    pub(crate) fn new(readings: Vec<LidarReading>, speed: f64) -> Self {
+    pub(crate) fn new(readings: [LidarReading; 4], speed: f64) -> Self {
         LidarMessage {
             readings,
             speed,
         }
     }
 }
-

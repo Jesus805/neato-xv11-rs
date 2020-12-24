@@ -1,4 +1,4 @@
-pub enum Command {
+pub enum LidarDriverCommand {
     Pause,
     Run,
     Stop,

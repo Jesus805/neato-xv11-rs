@@ -1,11 +1,11 @@
-use super::command::Command;
-use super::error::{DriverError, LidarReadingError};
-use super::message::{LidarReading, LidarMessage};
-use serial::prelude::*;
+use std::convert::TryInto;
 use std::ffi::OsStr;
 use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use std::time::Duration;
 use std::vec::Vec;
+
+use super::prelude::*;
+use serial::prelude::*;
 
 /// Default Neato XV-11 LIDAR settings.
 const SETTINGS: serial::PortSettings = serial::PortSettings {
@@ -24,7 +24,7 @@ const SETTINGS: serial::PortSettings = serial::PortSettings {
 ///
 /// The slice must be 20 bytes in size.
 ///
-fn checksum(data : &[u8]) -> u32 {
+fn calc_checksum(data : &[u8]) -> u32 {
     let mut chk32 : u32 = 0;
 
     for i in 0..10 {
@@ -48,7 +48,7 @@ fn checksum(data : &[u8]) -> u32 {
 ///
 /// Parse encoded LIDAR packet.
 ///
-fn parse(buffer: &[u8; 22]) -> Result<LidarMessage, DriverError> {
+fn parse(buffer: &[u8; 22]) -> Result<LidarMessage, LidarDriverError> {
     let mut readings = Vec::with_capacity(4);
 
     // Packet index | Range = [0,89].
@@ -66,11 +66,11 @@ fn parse(buffer: &[u8; 22]) -> Result<LidarMessage, DriverError> {
 
     // Generate the expected checksum.
     let expected_checksum = (msb << 8) | lsb;
-    let calc_checksum = checksum(&buffer[0..20]);
+    let calc_checksum = calc_checksum(&buffer[0..20]);
 
     if calc_checksum != expected_checksum {
         // Checksum error occured. The data is corrupted.
-        return Err(DriverError::Checksum(index));
+        return Err(LidarDriverError::Checksum(index));
     }
 
     for i in 1..5 {
@@ -103,7 +103,7 @@ fn parse(buffer: &[u8; 22]) -> Result<LidarMessage, DriverError> {
         }
     }
     
-    Ok(LidarMessage::new(readings, speed))
+    Ok(LidarMessage::new(readings.try_into().unwrap(), speed))
 }
 
 /// ## Summary
@@ -118,10 +118,10 @@ fn parse(buffer: &[u8; 22]) -> Result<LidarMessage, DriverError> {
 /// 
 /// tx: Send channel to write to in the event of a read error.
 ///
-fn read<T: SerialPort>(port: &mut T, mut buffer: &mut [u8], tx: &Sender<Result<LidarMessage, DriverError>>) -> Result<(), ()> {
+fn read<T: SerialPort>(port: &mut T, mut buffer: &mut [u8], tx: &Sender<Result<LidarMessage, LidarDriverError>>) -> Result<(), ()> {
     port.read_exact(&mut buffer).map_err(|e| {
         // Consume error into wrapper.
-        let serial_error = DriverError::SerialRead(e);
+        let serial_error = LidarDriverError::SerialRead(e);
         // Report error to the calling program.
         tx.send(Err(serial_error)).unwrap();
     })
@@ -139,7 +139,7 @@ fn read<T: SerialPort>(port: &mut T, mut buffer: &mut [u8], tx: &Sender<Result<L
 /// 
 /// tx: Send channel to write to in the event of a read error.
 ///
-fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Result<LidarMessage, DriverError>>) -> Result<(), ()> {
+fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Result<LidarMessage, LidarDriverError>>) -> Result<(), ()> {
     loop {
         // Read 1 byte until '0xFA' is found.
         if let Err(_) = read::<T>(&mut port, &mut buffer[0..1], &tx) {
@@ -199,7 +199,7 @@ fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Resu
 ///     neato_xv11::run("/dev/serial0", message_tx, command_rx);
 /// });
 /// ```
-pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMessage, DriverError>>, rx: Receiver<Command>) {
+pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMessage, LidarDriverError>>, rx: Receiver<LidarDriverCommand>) {
     let mut port;
     
     // Attempt to open the serial port.
@@ -210,7 +210,7 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMess
         },
         Err(err) => {
             // Unable to open the serial port.
-            tx.send(Err(DriverError::OpenSerialPort(err))).unwrap();
+            tx.send(Err(LidarDriverError::OpenSerialPort(err))).unwrap();
             return;
         }
     }
@@ -218,14 +218,14 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMess
     // Attempt to set the timeout.
     if let Err(err) = port.set_timeout(Duration::from_secs(1)) {
         // Unable to set the timeout.
-        tx.send(Err(DriverError::SetTimeout(err))).unwrap();
+        tx.send(Err(LidarDriverError::SetTimeout(err))).unwrap();
         return;
     }
 
     // Attempt to configure the serial port.
     if let Err(err) = port.configure(&SETTINGS) {
         // Unable to configure the port.
-        tx.send(Err(DriverError::Configure(err))).unwrap();
+        tx.send(Err(LidarDriverError::Configure(err))).unwrap();
         return;
     }
     
@@ -239,15 +239,15 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMess
 
     loop {
         // Sleep for 1 millisecond.
-        std::thread::sleep(Duration::from_micros(100));
+        std::thread::sleep(Duration::from_millis(1));
 
         // Try to receive a command from the main thread.
         match rx.try_recv() {
             Ok(cmd) => {
                 match cmd {
-                    Command::Run => is_paused = false,
-                    Command::Pause => is_paused = true,
-                    Command::Stop => return,
+                    LidarDriverCommand::Run => is_paused = false,
+                    LidarDriverCommand::Pause => is_paused = true,
+                    LidarDriverCommand::Stop => return,
                 }
             },
             Err(err) => {
@@ -286,7 +286,7 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMess
             if buffer[0] != 0xFA || buffer[1] < 0xA0 || buffer[1] > 0xF9 {
                 // The first byte is not '0xFA' or the second byte isn't a valid index.
                 // Resync required.
-                tx.send(Err(DriverError::ResyncRequired)).unwrap();
+                tx.send(Err(LidarDriverError::ResyncRequired)).unwrap();
                 needs_sync = true;
                 continue;
             }
@@ -315,7 +315,7 @@ mod tests {
         // Arrange
         let expected_checksum = 0x6BF6;
         // Act
-        let actual_checksum = checksum(&PACKET[..20]);
+        let actual_checksum = calc_checksum(&PACKET[..20]);
         // Assert
         assert_eq!(expected_checksum, actual_checksum);
     }
