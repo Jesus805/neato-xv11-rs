@@ -10,10 +10,14 @@ readme = "README.md"
 keywords = ["lidar", "serial", "neato", "xv-11", "xv11"]
 edition = "2018"
 
+[features]
+serde = ["serde"]
+log = ["log"]
+
 [package.metadata.playground]
-features = ["serde"]
+features = ["serde", "log"]
 
 [dependencies]
 serial = "0.4.0"
-log = { version = "0.4.11" }
-serde = { features = ["derive"], version = "1.0.118" }
+log = { optional = true, version = "0.4.11" }
+serde = { features = ["derive"], optional = true, version = "1.0.118" }
