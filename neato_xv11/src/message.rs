@@ -1,81 +1,43 @@
-use super::error::LidarReadingError;
+use std::fmt::Display;
+
 #[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};
 
+use super::data::LidarPacket;
+use super::error::LidarDriverError;
+
 /// ## Summary
 ///
-/// A LIDAR distance reading.
+/// Messages sent to the LIDAR driver.
 ///
-#[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-pub struct LidarReading {
-    // Index of the reading.
-    pub index: usize,
-    // Distance in millimeters.
-    pub distance: u32,
-    // Quality of the reading.
-    pub quality: u32,
-    // Error reported in reading.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub error: Option<LidarReadingError>,
+pub enum LidarDriverCommand {
+    // Pause LIDAR reading.
+    Pause,
+    // Run LIDAR.
+    Run,
+    // Stop LIDAR.
+    Stop,
 }
 
-impl LidarReading {
-    /// ## Summary
-    /// 
-    /// Initialize a new LIDAR reading.
-    /// 
-    /// ## Parameters
-    /// 
-    /// index: Index of the reading.
-    /// 
-    /// distance: Distance in millimeters.
-    /// 
-    /// quality: Quality of the reading.
-    /// 
-    /// error: Error reported in reading.
-    /// 
-    pub(crate) fn new(index: usize,
-                      distance: u32,
-                      quality: u32,
-                      error: Option<LidarReadingError>) -> Self {
-        LidarReading {
-            index,
-            distance,
-            quality,
-            error,
+impl Display for LidarDriverCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            LidarDriverCommand::Pause => write!(f, "Pause"),
+            LidarDriverCommand::Run => write!(f, "Run"),
+            LidarDriverCommand::Stop => write!(f, "Stop"),
         }
     }
 }
 
 /// ## Summary
-///
-/// A decoded LIDAR message containing four distance readings.
-///
-#[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-pub struct LidarMessage {
-    // Collection of four readings.
-    pub readings: [LidarReading; 4],
-    // LIDAR spin speed (RPM).
-    pub speed: f64,
-}
-
-impl LidarMessage {
-    /// ## Summary
-    /// 
-    /// Initialize a new decoded LIDAR message.
-    /// 
-    /// ## Parameters
-    /// 
-    /// readings: Collection of four readings.
-    /// 
-    /// speed: LIDAR spin speed (RPM).
-    /// 
-    pub(crate) fn new(readings: [LidarReading; 4], speed: f64) -> Self {
-        LidarMessage {
-            readings,
-            speed,
-        }
-    }
+/// 
+/// Messages received from the LIDAR driver.
+/// 
+pub enum LidarDriverMessage {
+    // An error occured.
+    Err(LidarDriverError),
+    // A LIDAR packet (4 readings).
+    Packet(LidarPacket),
+    // The LIDAR is shutting down.
+    Shutdown,
 }

@@ -15,6 +15,5 @@ features = ["serde"]
 
 [dependencies]
 serial = "0.4.0"
-
-[dependencies.serde]
-serde = { version = "1.0.118", features = ["derive"] }
+log = { optional = true, version = "0.4.11" }
+serde = { features = ["derive"], optional = true, version = "1.0.118" }

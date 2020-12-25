@@ -30,12 +30,12 @@ pub enum LidarDriverError {
 impl fmt::Display for LidarDriverError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            LidarDriverError::Checksum(size) => write!(f, "checksum error occured at packet index {}", size),
-            LidarDriverError::Configure(_) => write!(f, "unable to configure serial port"),
-            LidarDriverError::OpenSerialPort(_) => write!(f, "unable to open serial port"),
-            LidarDriverError::ResyncRequired => write!(f, "resync required"),
-            LidarDriverError::SerialRead(_) => write!(f, "unable to read from serial port"),
-            LidarDriverError::SetTimeout(_) => write!(f, "unable to set serial port timeout"),
+            LidarDriverError::Checksum(size) => write!(f, "Checksum error occured at packet index {}", size),
+            LidarDriverError::Configure(_) => write!(f, "Unable to configure serial port"),
+            LidarDriverError::OpenSerialPort(_) => write!(f, "Unable to open serial port"),
+            LidarDriverError::ResyncRequired => write!(f, "Resync required"),
+            LidarDriverError::SerialRead(_) => write!(f, "Unable to read from serial port"),
+            LidarDriverError::SetTimeout(_) => write!(f, "Unable to set serial port timeout"),
         }
     }
 }

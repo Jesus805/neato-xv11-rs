@@ -4,8 +4,12 @@ use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use std::time::Duration;
 use std::vec::Vec;
 
-use super::prelude::*;
+#[cfg(feature = "log")]
+use log::{info, warn, error};
 use serial::prelude::*;
+
+use super::prelude::*;
+
 
 /// Default Neato XV-11 LIDAR settings.
 const SETTINGS: serial::PortSettings = serial::PortSettings {
@@ -48,7 +52,7 @@ fn calc_checksum(data : &[u8]) -> u32 {
 ///
 /// Parse encoded LIDAR packet.
 ///
-fn parse(buffer: &[u8; 22]) -> Result<LidarMessage, LidarDriverError> {
+fn parse_packet(buffer: &[u8; 22]) -> LidarDriverMessage {
     let mut readings = Vec::with_capacity(4);
 
     // Packet index | Range = [0,89].
@@ -69,8 +73,11 @@ fn parse(buffer: &[u8; 22]) -> Result<LidarMessage, LidarDriverError> {
     let calc_checksum = calc_checksum(&buffer[0..20]);
 
     if calc_checksum != expected_checksum {
+        #[cfg(feature = "log")]
+        error!("A checksum error occured. The data is corrupted");
+
         // Checksum error occured. The data is corrupted.
-        return Err(LidarDriverError::Checksum(index));
+        return LidarDriverMessage::Err(LidarDriverError::Checksum(index));
     }
 
     for i in 1..5 {
@@ -103,7 +110,7 @@ fn parse(buffer: &[u8; 22]) -> Result<LidarMessage, LidarDriverError> {
         }
     }
     
-    Ok(LidarMessage::new(readings.try_into().unwrap(), speed))
+    LidarDriverMessage::Packet(LidarPacket::new(readings.try_into().unwrap(), speed))
 }
 
 /// ## Summary
@@ -118,12 +125,19 @@ fn parse(buffer: &[u8; 22]) -> Result<LidarMessage, LidarDriverError> {
 /// 
 /// tx: Send channel to write to in the event of a read error.
 ///
-fn read<T: SerialPort>(port: &mut T, mut buffer: &mut [u8], tx: &Sender<Result<LidarMessage, LidarDriverError>>) -> Result<(), ()> {
+fn read<T: SerialPort>(port: &mut T, mut buffer: &mut [u8], tx: &Sender<LidarDriverMessage>) -> Result<(), ()> {
     port.read_exact(&mut buffer).map_err(|e| {
+        #[cfg(feature = "log")]
+        error!("Unable to read from serial port. {}", e);
+
         // Consume error into wrapper.
         let serial_error = LidarDriverError::SerialRead(e);
+        
         // Report error to the calling program.
-        tx.send(Err(serial_error)).unwrap();
+        match send_message(&tx, LidarDriverMessage::Err(serial_error)) {
+            Ok(_) => {},
+            Err(_) => {}
+        };
     })
 }
 
@@ -139,7 +153,7 @@ fn read<T: SerialPort>(port: &mut T, mut buffer: &mut [u8], tx: &Sender<Result<L
 /// 
 /// tx: Send channel to write to in the event of a read error.
 ///
-fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Result<LidarMessage, LidarDriverError>>) -> Result<(), ()> {
+fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<LidarDriverMessage>) -> Result<(), ()> {
     loop {
         // Read 1 byte until '0xFA' is found.
         if let Err(_) = read::<T>(&mut port, &mut buffer[0..1], &tx) {
@@ -163,6 +177,16 @@ fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Resu
         // In sync, break out of loop.
         return Ok(());
     }
+}
+
+fn send_message(tx: &Sender<LidarDriverMessage>, result: LidarDriverMessage) -> Result<(), ()> {
+    #[cfg(feature = "log")]
+    return tx.send(result).map_err(|e| {
+        error!("Unable to send message. {}", e);
+    });
+    
+    #[cfg(not(feature = "log"))]
+    return tx.send(result).map_err(|_| {});
 }
 
 /// ## Summary
@@ -199,35 +223,59 @@ fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Resu
 ///     neato_xv11::run("/dev/serial0", message_tx, command_rx);
 /// });
 /// ```
-pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMessage, LidarDriverError>>, rx: Receiver<LidarDriverCommand>) {
+pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<LidarDriverMessage>, rx: Receiver<LidarDriverCommand>) {
     let mut port;
     
-    // Attempt to open the serial port.
+    // Open the serial port.
     match serial::open(port_name) {
         Ok(p) => {
+            #[cfg(feature = "log")]
+            info!("Successfully opened serial port");
+
             // Initialize the serial port.
             port = p
         },
         Err(err) => {
+            #[cfg(feature = "log")]
+            error!("Unable to open serial port. {}", err);
+
             // Unable to open the serial port.
-            tx.send(Err(LidarDriverError::OpenSerialPort(err))).unwrap();
-            return;
+            match send_message(&tx, LidarDriverMessage::Err(LidarDriverError::OpenSerialPort(err))) {
+                Ok(_) => return,
+                Err(_) => return,
+            }
         }
     }
 
-    // Attempt to set the timeout.
+    // Set the timeout.
     if let Err(err) = port.set_timeout(Duration::from_secs(1)) {
+        #[cfg(feature = "log")]
+        error!("Unable to set timeout. {}", err);
+        
         // Unable to set the timeout.
-        tx.send(Err(LidarDriverError::SetTimeout(err))).unwrap();
-        return;
+        match send_message(&tx, LidarDriverMessage::Err(LidarDriverError::SetTimeout(err))) {
+            Ok(_) => return,
+            Err(_) => return,
+        }
     }
 
-    // Attempt to configure the serial port.
+    #[cfg(feature = "log")]
+    info!("Successfully set the timeout");
+
+    // Configure the serial port.
     if let Err(err) = port.configure(&SETTINGS) {
+        #[cfg(feature = "log")]
+        error!("Unable to configure serial port. {}", err);
+
         // Unable to configure the port.
-        tx.send(Err(LidarDriverError::Configure(err))).unwrap();
-        return;
+        match send_message(&tx, LidarDriverMessage::Err(LidarDriverError::Configure(err))) {
+            Ok(_) => return,
+            Err(_) => return,
+        }
     }
+
+    #[cfg(feature = "log")]
+    info!("Successfully configured the serial port");
     
     // Temporary buffer to hold packet data.
     let mut buffer : [u8; 22] = [0; 22];
@@ -241,19 +289,26 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMess
         // Sleep for 1 millisecond.
         std::thread::sleep(Duration::from_millis(1));
 
-        // Try to receive a command from the main thread.
+        // Try to receive a command message from the main thread.
         match rx.try_recv() {
             Ok(cmd) => {
+                #[cfg(feature = "log")]
+                info!("Received command {}", cmd);
+
                 match cmd {
                     LidarDriverCommand::Run => is_paused = false,
                     LidarDriverCommand::Pause => is_paused = true,
-                    LidarDriverCommand::Stop => return,
+                    LidarDriverCommand::Stop => break,
                 }
             },
             Err(err) => {
                 match err {
                     TryRecvError::Empty => {}
-                    TryRecvError::Disconnected => return,
+                    TryRecvError::Disconnected => {
+                        #[cfg(feature = "log")]
+                        error!("Command channel disconnected");
+                        break;
+                    },
                 }
             }
         }
@@ -271,8 +326,11 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMess
         if needs_sync {
             // Synchronize to ensure every 22 bytes is a valid packet.
             if let Err(_) = sync(&mut port, &mut buffer, &tx) {
+                #[cfg(feature = "log")]
+                error!("Unable to sync");
+
                 // Error syncing.
-                return;
+                break;
             }
             needs_sync = false;
         }
@@ -280,24 +338,40 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarMess
             // Read 22 bytes from serial.
             if let Err(_) = read(&mut port, &mut buffer, &tx) {
                 // Error reading from serial.
-                return;
+                break;
             }
             
             if buffer[0] != 0xFA || buffer[1] < 0xA0 || buffer[1] > 0xF9 {
                 // The first byte is not '0xFA' or the second byte isn't a valid index.
                 // Resync required.
-                tx.send(Err(LidarDriverError::ResyncRequired)).unwrap();
-                needs_sync = true;
-                continue;
+                #[cfg(feature = "log")]
+                warn!("Corrupted data, resync required.");
+
+                if let Err(_) = send_message(&tx, LidarDriverMessage::Err(LidarDriverError::ResyncRequired)) {
+                    break;
+                }
+                else {
+                    needs_sync = true;
+                    continue;
+                }
             }
         }
 
-        let result = parse(&buffer);
+        let result = parse_packet(&buffer);
         
-        tx.send(result).unwrap();
+        if let Err(_) = send_message(&tx, result) {
+            break;
+        }
+    }
+
+    #[cfg(feature = "log")]
+    info!("Shutting down lidar.");
+
+    match send_message(&tx, LidarDriverMessage::Shutdown) {
+        Ok(_) => {},
+        Err(_) => {},
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -320,15 +394,16 @@ mod tests {
         assert_eq!(expected_checksum, actual_checksum);
     }
     
+    /*
     #[test]
     fn parse_with_correct_checksum_should_return_ok() {
         // Act
-        let actual_result = parse(&PACKET);
+        let actual_result = parse_packet(&PACKET);
         // Assert
         assert!(actual_result.is_ok());
     }
     
-    /*
+    
     #[test]
     fn parse_with_incorrect_checksum_should_return_error() {
         // Arrange
@@ -336,9 +411,6 @@ mod tests {
         // Act
         let actual_result = parse(&BAD_CHECKSUM).expect_err("Checksum Error expected");
         // Assert
-        if actual_result == DriverError::Checksum {
-
-        }
         assert_eq!(actual_result, expected_result);
     }
     */
