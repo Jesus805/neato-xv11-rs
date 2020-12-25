@@ -134,10 +134,8 @@ fn read<T: SerialPort>(port: &mut T, mut buffer: &mut [u8], tx: &Sender<LidarDri
         let serial_error = LidarDriverError::SerialRead(e);
         
         // Report error to the calling program.
-        match send_message(&tx, LidarDriverMessage::Err(serial_error)) {
-            Ok(_) => {},
-            Err(_) => {}
-        };
+        // We don't care about the result since being unable to read is a fatal error.
+        let _ = send_message(&tx, LidarDriverMessage::Err(serial_error));
     })
 }
 
@@ -240,10 +238,8 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<LidarDriverMessa
             error!("Unable to open serial port. {}", err);
 
             // Unable to open the serial port.
-            match send_message(&tx, LidarDriverMessage::Err(LidarDriverError::OpenSerialPort(err))) {
-                Ok(_) => return,
-                Err(_) => return,
-            }
+            let _ = send_message(&tx, LidarDriverMessage::Err(LidarDriverError::OpenSerialPort(err)));
+            return;
         }
     }
 
@@ -253,10 +249,8 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<LidarDriverMessa
         error!("Unable to set timeout. {}", err);
         
         // Unable to set the timeout.
-        match send_message(&tx, LidarDriverMessage::Err(LidarDriverError::SetTimeout(err))) {
-            Ok(_) => return,
-            Err(_) => return,
-        }
+        let _ = send_message(&tx, LidarDriverMessage::Err(LidarDriverError::SetTimeout(err)));
+        return;
     }
 
     #[cfg(feature = "log")]
@@ -268,10 +262,8 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<LidarDriverMessa
         error!("Unable to configure serial port. {}", err);
 
         // Unable to configure the port.
-        match send_message(&tx, LidarDriverMessage::Err(LidarDriverError::Configure(err))) {
-            Ok(_) => return,
-            Err(_) => return,
-        }
+        let _ = send_message(&tx, LidarDriverMessage::Err(LidarDriverError::Configure(err)));
+        return;
     }
 
     #[cfg(feature = "log")]
@@ -348,6 +340,7 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<LidarDriverMessa
                 warn!("Corrupted data, resync required.");
 
                 if let Err(_) = send_message(&tx, LidarDriverMessage::Err(LidarDriverError::ResyncRequired)) {
+                    // Sending a message to the calling program failed, shutdown the driver.
                     break;
                 }
                 else {
@@ -360,6 +353,7 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<LidarDriverMessa
         let result = parse_packet(&buffer);
         
         if let Err(_) = send_message(&tx, result) {
+            // Sending a message to the calling program failed, shutdown the driver.
             break;
         }
     }
@@ -367,10 +361,7 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<LidarDriverMessa
     #[cfg(feature = "log")]
     info!("Shutting down lidar.");
 
-    match send_message(&tx, LidarDriverMessage::Shutdown) {
-        Ok(_) => {},
-        Err(_) => {},
-    }
+    let _ = send_message(&tx, LidarDriverMessage::Shutdown);
 }
 
 #[cfg(test)]
