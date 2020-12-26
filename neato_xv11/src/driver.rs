@@ -98,13 +98,11 @@ fn parse_packet(buffer: &[u8; 22]) -> LidarDriverMessage {
             // Invalid data flag triggered. LSB contains error code.
             let error_code = distance & 0x00FF;
             readings.push(LidarReading::new(reading_index, distance, quality, Some(LidarReadingError::InvalidDataError(error_code))));
-        }
-        else if distance & 0x4000 > 0 {
+        } else if distance & 0x4000 > 0 {
             // Signal strength warning flag triggered. Remove flag before recording.
             let distance = distance & 0x3FFF;
             readings.push(LidarReading::new(reading_index, distance, quality, Some(LidarReadingError::SignalStrengthWarning)));
-        }
-        else {
+        } else {
             // No flag triggered. Write distance to readings.
             readings.push(LidarReading::new(reading_index, distance, quality, None));
         }
@@ -274,8 +272,7 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<LidarDriverMessa
     // Dictates if synchronization is required.
     let mut needs_sync = true;
     // Prevents the driver from reading from the serial port.
-    // Is paused by default.
-    let mut is_paused = true;
+    let mut is_paused = false;
 
     loop {
         // Sleep for 1 millisecond.
@@ -342,8 +339,7 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<LidarDriverMessa
                 if let Err(_) = send_message(&tx, LidarDriverMessage::Err(LidarDriverError::ResyncRequired)) {
                     // Sending a message to the calling program failed, shutdown the driver.
                     break;
-                }
-                else {
+                } else {
                     needs_sync = true;
                     continue;
                 }
