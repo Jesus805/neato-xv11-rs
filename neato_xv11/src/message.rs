@@ -1,8 +1,5 @@
 use std::fmt::Display;
 
-#[cfg(feature = "serde")]
-use serde::{Serialize, Deserialize};
-
 use super::data::LidarPacket;
 use super::error::LidarDriverError;
 

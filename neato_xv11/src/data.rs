@@ -1,5 +1,8 @@
 use super::error::LidarReadingError;
 
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+
 /// ## Summary
 ///
 /// A LIDAR distance reading.
