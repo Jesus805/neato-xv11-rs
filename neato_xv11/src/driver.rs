@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::ffi::OsStr;
 use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use std::time::Duration;
@@ -108,7 +107,7 @@ fn parse_packet(buffer: &[u8; 22]) -> LidarDriverMessage {
         }
     }
     
-    LidarDriverMessage::Packet(LidarPacket::new(readings.try_into().unwrap(), speed))
+    LidarDriverMessage::Packet(LidarPacket::new(readings, speed))
 }
 
 /// ## Summary

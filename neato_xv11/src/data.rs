@@ -57,7 +57,7 @@ impl LidarReading {
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct LidarPacket {
     // Collection of four readings.
-    pub readings: [LidarReading; 4],
+    pub readings: Vec<LidarReading>,
     // LIDAR spin speed (RPM).
     pub speed: f64,
 }
@@ -73,7 +73,7 @@ impl LidarPacket {
     /// 
     /// speed: LIDAR spin speed (RPM).
     /// 
-    pub(crate) fn new(readings: [LidarReading; 4], speed: f64) -> Self {
+    pub(crate) fn new(readings: Vec<LidarReading>, speed: f64) -> Self {
         LidarPacket {
             readings,
             speed,
