@@ -50,7 +50,7 @@ impl fmt::Display for LidarDriverError {
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub enum LidarReadingError {
     // The Invalid Data Error flag was set. The associated value is the error code.
-    InvalidDataError(u32),
+    InvalidDataError(i32),
     // The Signal Strength Warning flag was set.
     SignalStrengthWarning,
 }

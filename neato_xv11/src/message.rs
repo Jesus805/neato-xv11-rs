@@ -30,6 +30,7 @@ impl Display for LidarDriverCommand {
 /// 
 /// Messages received from the LIDAR driver.
 /// 
+#[derive(Debug)]
 pub enum LidarDriverMessage {
     // An error occured.
     Err(LidarDriverError),

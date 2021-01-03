@@ -13,9 +13,9 @@ pub struct LidarReading {
     // Index of the reading.
     pub index: usize,
     // Distance in millimeters.
-    pub distance: u32,
+    pub distance: i32,
     // Quality of the reading.
-    pub quality: u32,
+    pub quality: i32,
     // Error reported in reading.
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub error: Option<LidarReadingError>,
@@ -37,8 +37,8 @@ impl LidarReading {
     /// error: Error reported in reading.
     /// 
     pub(crate) fn new(index: usize,
-                      distance: u32,
-                      quality: u32,
+                      distance: i32,
+                      quality: i32,
                       error: Option<LidarReadingError>) -> Self {
         LidarReading {
             index,

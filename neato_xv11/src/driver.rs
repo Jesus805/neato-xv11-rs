@@ -85,13 +85,13 @@ fn parse_packet(buffer: &[u8; 22]) -> LidarDriverMessage {
         let reading_index = 4 * index + i - 1;
 
         // The first 2 bytes are two flags + distance.
-        let msb = buffer[byte_index + 1] as u32;
-        let lsb = buffer[byte_index] as u32;
+        let msb = buffer[byte_index + 1] as i32;
+        let lsb = buffer[byte_index] as i32;
         let distance = (msb << 8) | lsb;
 
         // The next 2 bytes are the reliability (higher # = more reliable reading).
-        let msb = buffer[byte_index + 3] as u32;
-        let lsb = buffer[byte_index + 2] as u32;
+        let msb = buffer[byte_index + 3] as i32;
+        let lsb = buffer[byte_index + 2] as i32;
         let quality = (msb << 8) | lsb;
 
         if distance & 0x8000 > 0 {
@@ -367,8 +367,8 @@ mod tests {
     const PACKET: [u8; 22] = [0xFA, 0xB1, 0xE3, 0x49, 0xE4, 0x00, 0xE1, 0x05, 0xE2, 0x00, 0x34,
                               0x06, 0xE0, 0x00, 0x25, 0x06, 0xDF, 0x00, 0x84, 0x06, 0xF6, 0x6B];
 
-    //const BAD_CHECKSUM: [u8; 22] = [0xFA, 0xB1, 0xE3, 0x49, 0xE4, 0x00, 0xE1, 0x05, 0xE2, 0x00, 0x34,
-    //                                0x06, 0xE0, 0x00, 0x25, 0x06, 0xDF, 0x00, 0x84, 0x06, 0xA6, 0xCE];
+    const BAD_CHECKSUM: [u8; 22] = [0xFA, 0xB1, 0xE3, 0x49, 0xE4, 0x00, 0xE1, 0x05, 0xE2, 0x00, 0x34,
+                                    0x06, 0xE0, 0x00, 0x25, 0x06, 0xDF, 0x00, 0x84, 0x06, 0xA6, 0xCE];
 
 
     #[test]
@@ -391,12 +391,13 @@ mod tests {
     }
     
     
+    
     #[test]
     fn parse_with_incorrect_checksum_should_return_error() {
         // Arrange
-        let expected_result = DriverError::Checksum(0x11);
+        let expected_result = LidarDriverMessage::Err(LidarDriverError::Checksum(0x11));
         // Act
-        let actual_result = parse(&BAD_CHECKSUM).expect_err("Checksum Error expected");
+        let actual_result = parse_packet(&BAD_CHECKSUM);
         // Assert
         assert_eq!(actual_result, expected_result);
     }
