@@ -1,4 +1,5 @@
 mod driver;
+mod test;
 pub mod data;
 pub mod error;
 pub mod message;

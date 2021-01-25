@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
 use super::data::LidarPacket;
-use super::error::LidarDriverError;
 
 /// ## Summary
 ///
@@ -32,8 +31,6 @@ impl Display for LidarDriverCommand {
 /// 
 #[derive(Debug)]
 pub enum LidarDriverMessage {
-    // An error occured.
-    Err(LidarDriverError),
     // A LIDAR packet (4 readings).
     Packet(LidarPacket),
     // The LIDAR is shutting down.
