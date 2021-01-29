@@ -3,9 +3,9 @@ use std::fmt::Display;
 use super::data::LidarPacket;
 
 /// ## Summary
-///
+/// 
 /// Messages sent to the LIDAR driver.
-///
+/// 
 pub enum LidarDriverCommand {
     // Pause LIDAR reading.
     Pause,

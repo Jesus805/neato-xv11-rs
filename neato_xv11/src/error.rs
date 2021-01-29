@@ -28,15 +28,6 @@ pub enum LidarDriverError {
     SetTimeout(SerialError),
 }
 
-impl PartialEq for LidarDriverError {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (LidarDriverError::Checksum(first), LidarDriverError::Checksum(second)) => first == second,
-            _ => false
-        }
-    }
-}
-
 impl Display for LidarDriverError {
     fn fmt(&self, f: &mut Formatter) -> Result {
         match self {
@@ -58,6 +49,15 @@ impl Error for LidarDriverError {
             LidarDriverError::SerialRead(e) => Some(e),
             LidarDriverError::SetTimeout(e) => Some(e),
             _ => None,
+        }
+    }
+}
+
+impl PartialEq for LidarDriverError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (LidarDriverError::Checksum(first), LidarDriverError::Checksum(second)) => first == second,
+            _ => false
         }
     }
 }

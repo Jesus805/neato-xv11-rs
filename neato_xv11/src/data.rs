@@ -4,9 +4,9 @@ use super::error::LidarReadingError;
 use serde::{Serialize, Deserialize};
 
 /// ## Summary
-///
+/// 
 /// A LIDAR distance reading.
-///
+/// 
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct LidarReading {
@@ -50,9 +50,9 @@ impl LidarReading {
 }
 
 /// ## Summary
-///
+/// 
 /// A decoded LIDAR packet containing four distance readings.
-///
+/// 
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct LidarPacket {

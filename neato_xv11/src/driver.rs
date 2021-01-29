@@ -21,13 +21,13 @@ const SETTINGS: serial::PortSettings = serial::PortSettings {
 };
 
 /// ## Summary
-///
+/// 
 /// Calculate the checksum using the first 20 bytes of the packet.
-///
+/// 
 /// ## Remarks
-///
+/// 
 /// The slice must be 20 bytes in size.
-///
+/// 
 pub(crate) fn calc_checksum(data : &[u8]) -> u32 {
     let mut chk32 : u32 = 0;
 
@@ -49,9 +49,9 @@ pub(crate) fn calc_checksum(data : &[u8]) -> u32 {
 }
 
 /// ## Summary
-///
+/// 
 /// Parse encoded LIDAR packet.
-///
+/// 
 pub(crate) fn parse_packet(buffer: &[u8; 22]) -> Result<LidarDriverMessage, LidarDriverError> {
     let mut readings = Vec::with_capacity(4);
 
@@ -112,17 +112,17 @@ pub(crate) fn parse_packet(buffer: &[u8; 22]) -> Result<LidarDriverMessage, Lida
 }
 
 /// ## Summary
-///
+/// 
 /// Read from the serial port. Send read errors to the async channel.
-///
+/// 
 /// ## Parameters
-///
+/// 
 /// port: The port to read from.
-///
+/// 
 /// buffer: The buffer to read to. The size of the slice will be the read size.
 /// 
 /// tx: Send channel to write to in the event of a read error.
-///
+/// 
 fn read<T: SerialPort>(port: &mut T, mut buffer: &mut [u8], tx: &Sender<Result<LidarDriverMessage, LidarDriverError>>) -> Result<(), ()> {
     port.read_exact(&mut buffer).map_err(|e| {
         #[cfg(feature = "log")]
@@ -138,17 +138,17 @@ fn read<T: SerialPort>(port: &mut T, mut buffer: &mut [u8], tx: &Sender<Result<L
 }
 
 /// ## Summary
-///
+/// 
 /// Synchronizes by finding the header of a NeatoXV-11 LIDAR data packet.
-///
+/// 
 /// ## Parameters
-///
+/// 
 /// port: The port to read from.
-///
+/// 
 /// buffer: The buffer to read to.
 /// 
 /// tx: Send channel to write to in the event of a read error.
-///
+/// 
 fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Result<LidarDriverMessage, LidarDriverError>>) -> Result<(), ()> {
     loop {
         // Read 1 byte until '0xFA' is found.
@@ -186,25 +186,25 @@ fn send_message(tx: &Sender<Result<LidarDriverMessage, LidarDriverError>>, resul
 }
 
 /// ## Summary
-///
+/// 
 /// Begin reading LIDAR data.
 /// 
 /// ## Parameters
 /// 
 /// port_name: The port name to open.
-///
+/// 
 /// tx: Sends decoded LIDAR messages or error encountered.
-///
+/// 
 /// rx: Receives commands from the calling program.
-///
+/// 
 /// ## Remarks
-///
+/// 
 /// 22 byte packet format:
 /// [0xFA, 1-byte index, 2-byte speed, [2-byte flags/distance, 2-byte quality] * 4, 2-byte checksum]
 /// All multi-byte values are little endian (except speed which is big endian)
-///
+/// 
 /// ## Example
-///
+/// 
 /// ```no_run
 /// # use std::thread;
 /// # use std::sync::mpsc::channel;
