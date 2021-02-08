@@ -151,6 +151,9 @@ fn read<T: SerialPort>(port: &mut T, mut buffer: &mut [u8], tx: &Sender<Result<L
 /// 
 fn sync<T: SerialPort>(mut port: &mut T, buffer: &mut [u8; 22], tx: &Sender<Result<LidarDriverMessage, LidarDriverError>>) -> Result<(), ()> {
     loop {
+        // Sleep for 1 millisecond.
+        std::thread::sleep(Duration::from_micros(100));
+        
         // Read 1 byte until '0xFA' is found.
         if let Err(_) = read::<T>(&mut port, &mut buffer[0..1], &tx) {
             return Err(());
