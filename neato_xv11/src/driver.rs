@@ -322,15 +322,15 @@ pub fn run<T: AsRef<OsStr> + ?Sized> (port_name: &T, tx: Sender<Result<LidarDriv
                 error!("Unable to sync");
 
                 // Error syncing.
-                break;
+                continue;
             }
             needs_sync = false;
         }
         else {
             // Read 22 bytes from serial.
             if let Err(_) = read(&mut port, &mut buffer, &tx) {
-                // Error reading from serial.
-                break;
+                // Error reading from serial. Try again later.
+                continue;
             }
             
             if buffer[0] != 0xFA || buffer[1] < 0xA0 || buffer[1] > 0xF9 {
